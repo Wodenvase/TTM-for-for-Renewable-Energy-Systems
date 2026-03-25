@@ -6,7 +6,7 @@ Cargo.lock
 *~
 .DS_Store
 results/
-plots/*.png
+# Note: plots/*.png files ARE tracked in git (research-grade visualizations)
 plots/*.pdf
 data/*.xlsx
 data/*.xls

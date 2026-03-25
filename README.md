@@ -16,7 +16,7 @@ The model is implemented in **Rust** for numerical stability and performance, wi
 
 Conventional LCOE analysis treats technology costs as fixed:
 
-$$\text{LCOE}_{\text{static}} = \frac{\sum_{t=0}^{T} \frac{I_t + O_M_t + F_t}{(1+r)^t}}{\sum_{t=0}^{T} \frac{E_t}{(1+r)^t}}$$
+$$\text{LCOE}_{\text{static}} = \frac{\sum_{t=0}^{T} \frac{I_{t} + O_{M,t} + F_{t}}{(1+r)^{t}}}{\sum_{t=0}^{T} \frac{E_{t}}{(1+r)^{t}}}$$
 
 **Issues:**
 - Does not capture technological learning
@@ -41,12 +41,12 @@ We extend LCOE to capture:
 
 Capital cost trajectory follows a learning curve:
 
-$$C(t) = C_0 \left(\frac{Q(t)}{Q_0}\right)^{-\lambda}$$
+$$C(t) = C_{0} \left(\frac{Q(t)}{Q_{0}}\right)^{-\lambda}$$
 
 Where:
-- $C_0$: initial capital cost ($/kW)
+- $C_{0}$: initial capital cost ($/kW)
 - $Q(t)$: cumulative installed capacity at time $t$ (GW)
-- $Q_0$: reference capacity
+- $Q_{0}$: reference capacity
 - $\lambda$: learning exponent (typical: 0.2–0.4)
 
 **Interpretation:** Each doubling of cumulative capacity reduces costs by factor $2^{-\lambda}$.
@@ -55,19 +55,19 @@ Where:
 
 At each time step $t$, LCOE is computed as:
 
-$$\text{LCOE}(t) = \frac{C(t) \cdot \text{CapEx recovery factor} + O\&M(t) + F(t)}{\text{Capacity Factor} \cdot 8760}$$
+$$\text{LCOE}(t) = \frac{C(t) \cdot \text{CRF} + O_{M}(t) + F(t)}{\eta \cdot 8760}$$
 
 Where:
-- CapEx recovery factor: $\frac{r(1+r)^n}{(1+r)^n - 1}$ (amortization)
-- $O\&M(t)$: operations & maintenance costs ($/kW/year)
+- CRF: $\frac{r(1+r)^{n}}{(1+r)^{n} - 1}$ (capital recovery factor / amortization)
+- $O_{M}(t)$: operations & maintenance costs ($/kW/year)
 - $F(t)$: fuel costs (≈0 for renewables)
-- Capacity Factor: $\eta$ (efficiency parameter)
+- $\eta$: capacity factor (efficiency parameter)
 
 ### 2.3 Capacity Evolution Dynamics
 
 Deployment follows a capacity diffusion model:
 
-$$\frac{dQ}{dt} = \alpha \cdot \max(0, \text{CapEx}_{\text{budget}} / C(t)) - \delta Q(t)$$
+$$\frac{dQ}{dt} = \alpha \cdot \max\left(0, \frac{\text{CapEx}_{\text{budget}}}{C(t)}\right) - \delta Q(t)$$
 
 Where:
 - $\alpha$: sensitivity to affordability (investment rate constant)
@@ -80,24 +80,24 @@ Where:
 
 For each technology $i \in \{\text{PV, Wind, Gas, Nuclear}\}$:
 
-$$\text{LCOE}_i(t) = f_i(C_i(t), Q_i(t), \lambda_i, \eta_i, r)$$
+$$\text{LCOE}_{i}(t) = f_{i}\left(C_{i}(t), Q_{i}(t), \lambda_{i}, \eta_{i}, r\right)$$
 
 Technologies compete on:
-1. **Cost convergence time** $t_{i}^*$: when LCOE_i < LCOE_baseline
-2. **Learning aggressiveness** $\lambda_i$
-3. **Space/grid constraints** embodied in max $Q_i$
+1. **Cost convergence time** $t_{i}^{*}$: when $\text{LCOE}_{i} < \text{LCOE}_{\text{baseline}}$
+2. **Learning aggressiveness** $\lambda_{i}$
+3. **Space/grid constraints** embodied in $\max Q_{i}$
 
 ### 2.5 System Transition Metric
 
 Define penetration as:
 
-$$\text{Penetration}(t) = \frac{\sum_{i \in \text{renewables}} Q_i(t)}{\sum_{j} Q_j(t)}$$
+$$\text{Penetration}(t) = \frac{\sum_{i \in \text{renewables}} Q_{i}(t)}{\sum_{j} Q_{j}(t)}$$
 
-**Key variable:** Time $T_{80\%}$ to reach 80% renewable penetration.
+**Key variable:** Time $T_{80}$ to reach 80% renewable penetration.
 
 Transition stability:
 
-$$\forall t > T_{80\%}, \quad \frac{d(\text{Penetration})}{dt} > 0 \quad \text{(or stays plateaued)}$$
+$$\forall t > T_{80}, \quad \frac{d(\text{Penetration})}{dt} > 0 \quad \text{(or stays plateaued)}$$
 
 ---
 
@@ -153,9 +153,9 @@ pub struct Technology {
 
 **Question:** When does renewable LCOE < fossil baseline?
 
-**Method:** Solve $\text{LCOE}_{\text{renewable}}(t^*) = \text{LCOE}_{\text{fossil}}$ numerically.
+**Method:** Solve $\text{LCOE}_{\text{renewable}}(t^{*}) = \text{LCOE}_{\text{fossil}}$ numerically.
 
-**Output:** $t^* \in \mathbb{R}_+$ (years from baseline)
+**Output:** $t^{*} \in \mathbb{R}_{+}$ (years from baseline)
 
 **Sensitivity:** Vary learning rate $\lambda$, discount rate $r$, initial capacity factor.
 
@@ -163,7 +163,7 @@ pub struct Technology {
 
 Vary key parameters:
 - Learning exponent: $\lambda \in [0.1, 0.5]$
-- Discount rate: $r \in [2\%, 10\%]$
+- Discount rate: $r \in [0.02, 0.10]$ (2% to 10%)
 - Initial capital costs: $\pm 20\%$
 - Capacity factor uncertainty: $\pm 15\%$
 
@@ -172,9 +172,9 @@ Vary key parameters:
 ### 4.3 Transition Speed Analysis
 
 Track cumulative penetration over time:
-$$T_{p\%} = \min \{t : \text{Penetration}(t) \geq p\%\}$$
+$$T_{p} = \min \{t : \text{Penetration}(t) \geq p\}$$
 
-For $p \in \{50\%, 70\%, 80\%, 90\%\}$, compute $T_p$.
+For $p \in \{50, 70, 80, 90\}$ percent, compute $T_{p}$.
 
 **Interpretation:** Convexity in $T_p$ signals transition acceleration or stalling.
 
@@ -182,9 +182,9 @@ For $p \in \{50\%, 70\%, 80\%, 90\%\}$, compute $T_p$.
 
 Extend model to include carbon pricing:
 
-$$\text{effective cost} = \text{LCOE} + \text{carbon price} \times \text{emissions intensity}$$
+$$\text{effective cost} = \text{LCOE} + p_{\text{CO}_{2}} \times \text{emissions intensity}$$
 
-Measure how policy accelerates transition by reducing $T_{80\%}$.
+Measure how policy accelerates transition by reducing $T_{80}$.
 
 ---
 
@@ -202,8 +202,6 @@ Measure how policy accelerates transition by reducing $T_{80\%}$.
 
 ### Technology Baseline (2024)
 
-### Technology Baseline (2024)
-
 ![Technology Metrics Comparison](plots/technology_comparison.png)
 
 **Figure 2: Technology Metrics Comparison** – Comparative visualization of key parameters for each technology:
@@ -212,15 +210,15 @@ Measure how policy accelerates transition by reducing $T_{80\%}$.
 - **Bottom-left:** Learning rates (λ): Solar (0.25) >> Wind (0.15) >> Gas (0.05)
 - **Bottom-right:** Capacity factors: Impact on annual energy production; offshore wind highest (45%)
 
-| Technology | Initial Cost | Learning Rate | Capacity Factor | O&M (% of CapEx) |
-|------------|------|-------|--------|---------|
+| Technology | Initial Cost ($/kW) | Learning Rate | Capacity Factor | O&M % |
+|:-----------|----:|---:|---:|---:|
 | Solar PV   | 900  | 0.25  | 0.25   | 1%      |
-| Wind Onshore | 1300 | 0.15  | 0.35   | 2%      |
-| Wind Offshore | 2800 | 0.20 | 0.45   | 3%      |
-| Gas (CCGT) | 800  | 0.05  | 0.50   | 3%      |
-| Nuclear    | 8000 | 0.10  | 0.92   | 2%      |
+| Wind Onshore | 1,300 | 0.15  | 0.35   | 2%      |
+| Wind Offshore | 2,800 | 0.20 | 0.45   | 3%      |
+| Gas CCGT | 800  | 0.05  | 0.50   | 3%      |
+| Nuclear    | 8,000 | 0.10  | 0.92   | 2%      |
 
-**Sources:
+**Data sources:**
 - NREL 2024 ATB (Annual Technology Baseline)
 - IPCC AR6 WG3
 - BloombergNEF NEO 2025
