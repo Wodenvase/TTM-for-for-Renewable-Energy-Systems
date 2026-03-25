@@ -1,0 +1,16 @@
+# .gitignore
+target/
+Cargo.lock
+*.swp
+*.swo
+*~
+.DS_Store
+results/
+plots/*.png
+plots/*.pdf
+data/*.xlsx
+data/*.xls
+.vscode/
+.idea/
+*.iml
+node_modules/
